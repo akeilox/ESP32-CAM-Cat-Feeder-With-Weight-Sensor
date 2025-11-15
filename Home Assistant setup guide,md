@@ -1,0 +1,488 @@
+# Home Assistant Integration Guide
+## ESP32-CAM Cat Feeder
+
+This guide explains how to integrate your ESP32-CAM cat feeder with Home Assistant for full smart home control.
+
+---
+
+## Prerequisites
+
+1. **Home Assistant** installed and running
+2. **MQTT Broker** (Mosquitto add-on recommended)
+3. **ESP32-CAM** with the updated firmware flashed
+
+---
+
+## Step 1: Install MQTT Broker
+
+### Option A: Home Assistant Mosquitto Add-on (Recommended)
+
+1. Go to **Settings → Add-ons → Add-on Store**
+2. Search for **"Mosquitto broker"**
+3. Click **Install**
+4. After installation, go to **Configuration** tab:
+
+```yaml
+logins:
+  - username: YOUR_USERNAME
+  - password: YOUR_PASSWORD
+anonymous: false
+customize:
+  active: false
+  folder: mosquitto
+certfile: fullchain.pem
+keyfile: privkey.pem
+```
+
+5. Click **Save** and **Start**
+6. Enable **"Start on boot"** and **"Watchdog"**
+
+### Option B: External MQTT Broker
+
+If you already have an MQTT broker (like Mosquitto on a separate device):
+- Note the IP address and port (usually 1883)
+- Create credentials if authentication is enabled
+
+---
+
+## Step 2: Configure ESP32-CAM Firmware
+
+Update the configuration in your Arduino sketch:
+
+```cpp
+// MQTT / Home Assistant
+#define MQTT_ENABLED        1                    // Enable MQTT
+#define MQTT_SERVER         "192.168.1.100"      // Your Home Assistant IP or MQTT broker IP
+#define MQTT_PORT           1883                 // Default MQTT port
+#define MQTT_USER           "YOUR_USERNAME"      // Leave empty "" if no auth
+#define MQTT_PASS           "YOUR_PASSWORD"      // Leave empty "" if no auth
+#define DEVICE_NAME         "cat_feeder"         // Unique name (no spaces)
+#define HA_DISCOVERY_PREFIX "homeassistant"      // Default HA prefix
+```
+
+**Important Notes:**
+- Use your Home Assistant's IP address for `MQTT_SERVER`
+- If using Mosquitto add-on with no auth, leave `MQTT_USER` and `MQTT_PASS` as `""`
+- `DEVICE_NAME` must be unique if you have multiple feeders
+
+---
+
+## Step 3: Enable MQTT Integration in Home Assistant
+
+1. Go to **Settings → Devices & Services**
+2. Click **+ Add Integration**
+3. Search for **"MQTT"**
+4. Configure:
+   - **Broker:** `localhost` (if using Mosquitto add-on) or your broker IP
+   - **Port:** `1883`
+   - **Username/Password:** (if configured in Mosquitto)
+5. Check **"Enable discovery"** ✓
+6. Click **Submit**
+
+---
+
+## Step 4: Flash and Power On ESP32-CAM
+
+1. Flash the updated code to your ESP32-CAM
+2. Power on the device
+3. Monitor Serial output (115200 baud) to verify:
+
+```
+[WiFi] IP: 192.168.1.XXX
+[MQTT] Connecting to broker... OK
+[MQTT] Home Assistant discovery published
+=== Cat Feeder Ready ===
+```
+
+---
+
+## Step 5: Verify Auto-Discovery in Home Assistant
+
+Within 30 seconds, Home Assistant should auto-discover your cat feeder:
+
+1. Go to **Settings → Devices & Services → MQTT**
+2. You should see: **"1 device" or "4 entities discovered"**
+3. Click **Configure** or **View**
+4. Click on **"Cat Feeder Camera"** device
+
+### Auto-Discovered Entities:
+
+| Entity | Type | Description |
+|--------|------|-------------|
+| **Feed Cat** | Button | Triggers feeding (with cooldown) |
+| **Cat Feeder Motion** | Binary Sensor | Shows when motion detected |
+| **Cat Feeder Count** | Sensor | Total number of feeds |
+| **Cat Feeder Photos** | Sensor | Total photos taken |
+| **Cat Feeder Food Weight** | Sensor | Current food weight in grams (if HX711 enabled) |
+
+---
+
+## Step 6: Add to Dashboard
+
+### Quick Add to Overview:
+
+1. Go to **Overview** (Home) dashboard
+2. Click **Edit Dashboard** (three dots → Edit)
+3. Click **+ Add Card**
+4. Choose **"Entities"** card
+5. Add entities:
+   - `button.feed_cat`
+   - `binary_sensor.cat_feeder_motion`
+   - `sensor.cat_feeder_count`
+   - `sensor.cat_feeder_photos`
+   - `sensor.cat_feeder_food_weight` (if HX711 enabled)
+6. Click **Save**
+
+### Custom Dashboard Card Example:
+
+```yaml
+type: vertical-stack
+cards:
+  - type: entities
+    title: Cat Feeder Control
+    entities:
+      - entity: button.feed_cat
+        name: Feed Now
+        icon: mdi:food-drumstick
+      - entity: sensor.cat_feeder_count
+        name: Total Feeds
+      - entity: sensor.cat_feeder_photos
+        name: Photos Taken
+      - entity: sensor.cat_feeder_food_weight
+        name: Food Remaining
+  
+  - type: gauge
+    entity: sensor.cat_feeder_food_weight
+    name: Food Level
+    min: 0
+    max: 500
+    needle: true
+    severity:
+      green: 200
+      yellow: 100
+      red: 50
+  
+  - type: history-graph
+    title: Motion History
+    hours_to_show: 24
+    entities:
+      - entity: binary_sensor.cat_feeder_motion
+        name: Motion Detected
+  
+  - type: iframe
+    url: http://192.168.1.XXX:81/stream
+    aspect_ratio: 75%
+    title: Live Camera Feed
+```
+
+Replace `192.168.1.XXX` with your ESP32-CAM's IP address.
+
+---
+
+## Step 7: Create Automations
+
+### Example 1: Notify When Motion Detected
+
+```yaml
+alias: Cat Feeder Motion Alert
+description: Send notification when cat approaches feeder
+trigger:
+  - platform: state
+    entity_id: binary_sensor.cat_feeder_motion
+    to: "on"
+action:
+  - service: notify.mobile_app_YOUR_PHONE
+    data:
+      message: "🐱 Cat detected at feeder!"
+      title: "Cat Feeder"
+      data:
+        image: "http://192.168.1.XXX:81/stream"
+mode: single
+```
+
+### Example 2: Scheduled Feeding
+
+```yaml
+alias: Morning Cat Feeding
+description: Auto-feed at 7 AM every day
+trigger:
+  - platform: time
+    at: "07:00:00"
+condition:
+  - condition: time
+    weekday:
+      - mon
+      - tue
+      - wed
+      - thu
+      - fri
+      - sat
+      - sun
+action:
+  - service: button.press
+    target:
+      entity_id: button.feed_cat
+mode: single
+```
+
+### Example 3: Low Food Alert
+
+```yaml
+alias: Cat Feeder Low Food Warning
+description: Alert when food level is low
+trigger:
+  - platform: numeric_state
+    entity_id: sensor.cat_feeder_food_weight
+    below: 50
+action:
+  - service: notify.mobile_app_YOUR_PHONE
+    data:
+      message: "Cat feeder is running low on food ({{ states('sensor.cat_feeder_food_weight') }}g remaining)"
+      title: "⚠️ Feeder Low Food"
+  - service: notify.persistent_notification
+    data:
+      message: "Only {{ states('sensor.cat_feeder_food_weight') }}g of food remaining. Consider refilling!"
+      title: "⚠️ Feeder Refill Needed"
+mode: single
+```
+
+### Example 4: Feed Count Alert
+
+```yaml
+alias: Cat Feeder High Feed Count Warning
+description: Alert when feed count is high (may need refill)
+trigger:
+  - platform: numeric_state
+    entity_id: sensor.cat_feeder_count
+    above: 50
+action:
+  - service: notify.persistent_notification
+    data:
+      message: "Cat feeder has dispensed 50+ times. Consider refilling!"
+      title: "⚠️ Feeder Refill Needed"
+mode: single
+```
+
+### Example 5: Motion-Based Automation
+
+```yaml
+alias: Turn on lights when cat at feeder
+description: Turn on nearby lights when motion detected at night
+trigger:
+  - platform: state
+    entity_id: binary_sensor.cat_feeder_motion
+    to: "on"
+condition:
+  - condition: sun
+    after: sunset
+    before: sunrise
+action:
+  - service: light.turn_on
+    target:
+      entity_id: light.kitchen
+    data:
+      brightness: 50
+  - delay:
+      seconds: 30
+  - service: light.turn_off
+    target:
+      entity_id: light.kitchen
+mode: restart
+```
+
+---
+
+## Advanced Features
+
+### Create Feed Button on Dashboard
+
+Add a custom button card (requires `button-card` from HACS):
+
+```yaml
+type: custom:button-card
+entity: button.feed_cat
+name: Feed Cat Now
+icon: mdi:cat
+tap_action:
+  action: call-service
+  service: button.press
+  service_data:
+    entity_id: button.feed_cat
+styles:
+  card:
+    - background-color: rgb(255, 152, 0)
+    - height: 100px
+  name:
+    - font-size: 20px
+  icon:
+    - width: 50px
+```
+
+### Camera Entity (Advanced)
+
+To add the live stream as a camera entity, add to `configuration.yaml`:
+
+```yaml
+camera:
+  - platform: generic
+    name: Cat Feeder Camera
+    still_image_url: http://192.168.1.XXX:81/stream
+    stream_source: http://192.168.1.XXX:81/stream
+    verify_ssl: false
+```
+
+Replace `192.168.1.XXX` with your ESP32-CAM IP.
+
+Then restart Home Assistant and add to dashboard:
+
+```yaml
+type: picture-entity
+entity: camera.cat_feeder_camera
+camera_view: live
+```
+
+---
+
+## Troubleshooting
+
+### Device Not Auto-Discovered
+
+1. **Check MQTT connection:**
+   - In HA: **Developer Tools → MQTT**
+   - Subscribe to topic: `homeassistant/#`
+   - You should see discovery messages
+
+2. **Check ESP32-CAM Serial Monitor:**
+   ```
+   [MQTT] Connecting to broker... OK
+   [MQTT] Home Assistant discovery published
+   ```
+
+3. **Manual check MQTT topics:**
+   Subscribe to: `homeassistant/+/cat_feeder/#`
+
+### MQTT Connection Issues
+
+1. **Verify broker is running:**
+   - Settings → Add-ons → Mosquitto → Logs
+
+2. **Check credentials match:**
+   - ESP32 code vs Mosquitto configuration
+
+3. **Firewall/network:**
+   - Ensure port 1883 is open
+   - ESP32 and HA on same network
+
+### Entities Show "Unavailable"
+
+1. Check ESP32 is powered on and connected to WiFi
+2. Check MQTT broker is running
+3. Restart ESP32-CAM
+4. In HA, reload MQTT integration:
+   - Settings → Devices & Services → MQTT → ⋮ → Reload
+
+### Feed Button Not Working
+
+1. Check cooldown period hasn't expired (30 seconds default)
+2. Check Serial Monitor for:
+   ```
+   [MQTT] Received on .../feed/set: FEED
+   [MOTOR] Running for 3000 ms
+   ```
+3. Verify motor is wired correctly to GPIO12
+
+---
+
+## MQTT Topics Reference
+
+| Topic | Purpose |
+|-------|---------|
+| `homeassistant/cat_feeder/feed/set` | Command topic (send "FEED" or "ON") |
+| `homeassistant/cat_feeder/state` | State JSON (counters, uptime, IP, RSSI, weight) |
+| `homeassistant/cat_feeder/motion` | Motion events ("ON"/"OFF") |
+| `homeassistant/cat_feeder/weight` | Food weight in grams (float) |
+| `homeassistant/cat_feeder/availability` | Online status ("online"/"offline") |
+
+---
+
+## Security Recommendations
+
+1. **Use MQTT authentication** - Always set username/password
+2. **Isolate IoT network** - Put ESP32 on separate VLAN if possible
+3. **Use strong WiFi password**
+4. **Regular firmware updates** - Check for security patches
+5. **Monitor access logs** - Check MQTT broker logs periodically
+
+---
+
+## Required Arduino Libraries
+
+Make sure these are installed via Library Manager:
+
+- **PubSubClient** by Nick O'Leary (v2.8+)
+- **ArduinoJson** by Benoit Blanchon (v6.21+)
+- **HX711** by Bogdan Necula (v0.7.5+) - Only if using weight sensor
+
+Install via: **Tools → Manage Libraries** in Arduino IDE
+
+---
+
+## Hardware Setup
+
+### Weight Sensor (HX711 Load Cell - Optional)
+
+**Components needed:**
+- HX711 amplifier module
+- Load cell (5kg or 10kg recommended)
+- 4x M3 bolts for mounting
+
+**Wiring:**
+```
+HX711 Module → ESP32-CAM
+VCC          → 5V
+GND          → GND
+DT (DOUT)    → GPIO14
+SCK          → GPIO15
+
+Load Cell    → HX711
+Red wire     → E+
+Black wire   → E-
+White wire   → A-
+Green wire   → A+
+```
+
+**Calibration Steps:**
+
+1. Upload the code with `ENABLE_WEIGHT_SENSOR 1`
+2. Open Serial Monitor (115200 baud)
+3. With empty container, send Telegram command `/tare` to zero the scale
+4. Place a known weight (e.g., 100g)
+5. Adjust `CALIBRATION_FACTOR` in code until reading is accurate
+6. Common values: -7050 to -7500 (depends on your load cell)
+7. Reflash with correct calibration factor
+
+**Mounting:**
+- Mount load cell between feeder base and container
+- Ensure load cell can flex freely
+- Keep wires away from moving parts
+
+---
+
+## Support
+
+For issues or questions:
+- Check Serial Monitor (115200 baud) for error messages
+- Verify all configuration values are correct
+- Check Home Assistant logs: Settings → System → Logs
+- Check MQTT logs in Mosquitto add-on
+
+---
+
+## What's Next?
+
+- Add more sensors (temperature, humidity)
+- Integrate with Google Assistant/Alexa via HA
+- Create feeding schedules based on cat behavior patterns
+- Track food consumption trends with long-term statistics
+- Set up predictive refill reminders based on consumption rate
+- Add portion size tracking by monitoring weight before/after feeding
