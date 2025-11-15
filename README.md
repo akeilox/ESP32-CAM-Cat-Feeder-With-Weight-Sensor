@@ -25,20 +25,20 @@ Complete wiring guide for building the smart cat feeder.
 
 | Component | Quantity | Notes | Est. Price |
 |-----------|----------|-------|------------|
-| ESP32-CAM (AI-Thinker) | 1 | With OV2640 camera | $8-12 |
-| FTDI USB-to-Serial (3.3V) | 1 | For programming | $5-8 |
+| ESP32-CAM (AI-Thinker) | 1 | With OV2640 camera | $8 |
+| FTDI USB-to-Serial (3.3V) | 1 | For programming | $4 |
 | PIR Motion Sensor (HC-SR501) | 1 | 3.3V-5V compatible | $2-3 |
-| 5V Relay Module | 1 | 1-channel, optocoupler isolated | $2-3 |
+| 5V Relay Module or MOSFET | 1 | 1-channel, optocoupler isolated | $2-3 |
 | 5V DC Gear Motor | 1 | 6V motor works too | $3-5 |
-| MicroSD Card | 1 | 4GB+ (Class 10) | $5-8 |
-| 5V Power Supply | 1 | 2A minimum recommended | $5-8 |
+| MicroSD Card | 1 | 4GB+ (Class 10) | $3 |
+| 5V Power Supply | 1 | 2A minimum recommended | $3 |
 
 ### Optional Components (Weight Sensor)
 
 | Component | Quantity | Notes | Est. Price |
 |-----------|----------|-------|------------|
 | HX711 Amplifier Module | 1 | 24-bit ADC | $2-4 |
-| Load Cell (5kg-10kg) | 1 | Straight bar or single point | $5-10 |
+| Load Cell (5kg-10kg) | 1 | Straight bar or single point | $5 |
 | M3 Mounting Hardware | 4 sets | Bolts, nuts, washers | $2-3 |
 
 ### Additional Items
@@ -50,7 +50,7 @@ Complete wiring guide for building the smart cat feeder.
 - 1N4007 Diode (flyback protection for motor)
 - Project enclosure/3D printed case
 
-**Total Cost:** ~$40-60 (without weight sensor), ~$50-75 (with weight sensor)
+**Total Cost:** ~$40
 
 ---
 
