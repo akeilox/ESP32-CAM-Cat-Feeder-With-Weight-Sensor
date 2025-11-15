@@ -4,6 +4,20 @@
 Complete wiring guide for building the smart cat feeder.
 
 ---
+## Recommended Enclosure Design
+
+3D printable enclosure by guarisal at https://makerworld.com/en/models/1626909-wi-fi-automatic-dry-food-feeder-for-cats-dog
+
+**3D Printable Enclosure Features to add:**
+
+- Mounting points for ESP32-CAM (maybe SD card access slot)
+- Cutout for camera lens
+- PIR sensor window
+- Load cell mounting platform
+- Desiccant holder for the lid
+- Kibble hopper attachment points
+
+---
 
 ## Bill of Materials (BOM)
 
@@ -414,20 +428,6 @@ Servo GND    ---> GND
 
 Requires `ESP32Servo` library.
 
----
-
-## Recommended Enclosure Design
-
-**3D Printable Enclosure Features:**
-
-- Mounting points for ESP32-CAM (maybe SD card access slot)
-- Cutout for camera lens
-- PIR sensor window
-- Load cell mounting platform
-- Kibble hopper attachment points
-- Desiccant holder for the lid
-
-3D printable enclosure by guarisal at https://makerworld.com/en/models/1626909-wi-fi-automatic-dry-food-feeder-for-cats-dog
 ---
 
 ## Testing/Troubleshooting Checklist
